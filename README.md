@@ -2,6 +2,8 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/sayan9168/RevoSec/actions/workflows/ci.yml/badge.svg)](https://github.com/sayan9168/RevoSec/actions)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/sayan9168/RevoSec)
 [![Production Ready](https://img.shields.io/badge/status-production-brightgreen.svg)]()
 
 **RevoSec** is a production-grade, modern, ethical cybersecurity toolkit built for security researchers, system administrators, and students who want powerful defensive and authorized-assessment capabilities in a beautiful CLI.
@@ -26,7 +28,9 @@
 | **Network Interfaces** | Passive listing of local interfaces | Fully Safe |
 | **Port Scanner** | TCP connect scanner with mandatory authorization confirmation | Authorization Required |
 | **Hash Tools** | Multi-algo hashing, verification, hash identification | Fully Safe |
-| **File Integrity Monitor** | Create baselines + detect added/modified/deleted files | Fully Safe |
+| **File Integrity Monitor** | Baseline + change detection + **real-time watch** (watchdog) | Fully Safe |
+| **Secure Vault** | AES-GCM encrypted personal notes & secrets | Fully Safe |
+| **Web Dashboard** | Streamlit dashboard (`streamlit run dashboard/app.py`) | Fully Safe |
 | **Report Export** | JSON / CSV / Markdown reports saved to `~/.revosec/reports/` | Fully Safe |
 
 ### Why RevoSec is different
@@ -101,6 +105,15 @@ revosec hash --identify 5d41402abc4b2a76b9719d911017c592
 revosec fim create /etc --name system
 revosec fim check --name system
 revosec fim list
+revosec fim watch ~/Documents          # Real-time
+
+# Secure Vault
+revosec vault add --title "Secrets" --content "key=value"
+revosec vault list
+revosec vault read --id 20260928
+
+# Web Dashboard
+streamlit run dashboard/app.py
 
 # Version
 revosec version
@@ -119,7 +132,10 @@ src/revosec/
 │   ├── audit.py        # Local system audit
 │   ├── network.py      # Interfaces + authorized scanner
 │   ├── hashing.py      # Multi-algo hash + identify + verify
-│   └── integrity.py    # File Integrity Monitoring (FIM)
+│   ├── integrity.py    # File Integrity Monitoring (FIM + real-time)
+│   └── vault.py        # Secure encrypted notes
+├── dashboard/
+│   └── app.py          # Streamlit web dashboard
 └── utils/
     ├── banner.py
     ├── logger.py
@@ -144,10 +160,6 @@ src/revosec/
 - Python 3.10+
 - See `requirements.txt` / `pyproject.toml` for full list
 
-Optional system dependencies:
-- `nmap` (if you later extend the scanner)
-- Root/admin privileges only needed for certain low-level packet operations (not required for current features)
-
 ---
 
 ## 🛠️ Development
@@ -165,10 +177,11 @@ pytest
 
 - [x] File Integrity Monitoring (baseline + change detection)
 - [x] Hash tools (multi-algo + identify + verify)
-- [ ] Optional local web dashboard (Streamlit / FastAPI)
-- [ ] Secure note vault (encrypted)
-- [ ] Real-time FIM with watchdog
+- [x] Real-time FIM with watchdog
+- [x] Secure note vault (encrypted)
+- [x] Optional local web dashboard (Streamlit)
 - [ ] Plugin system
+- [ ] More export formats & reporting
 
 ---
 
@@ -181,6 +194,6 @@ MIT License — see [LICENSE](LICENSE)
 ## 🙏 Credits
 
 Built with ❤️ by [Sayan the researcher](https://github.com/sayan9168)  
-Stack: Python • Typer • Rich • cryptography • psutil • scapy
+Stack: Python • Typer • Rich • cryptography • psutil • scapy • Streamlit
 
 **Stay ethical. Stay curious. Stay secure.**
