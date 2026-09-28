@@ -9,7 +9,7 @@ from rich.prompt import Prompt
 
 from revosec.utils.banner import print_banner, print_module_header
 from revosec.utils.logger import logger
-from revosec.core import encryption, password, audit, network
+from revosec.core import encryption, password, audit, network, hashing, integrity
 
 app = typer.Typer(
     name="revosec",
@@ -33,6 +33,8 @@ def main(ctx: typer.Context):
         console.print("  [cyan]audit[/cyan]       Local system security audit")
         console.print("  [cyan]interfaces[/cyan]  List network interfaces")
         console.print("  [cyan]scan[/cyan]        Authorized TCP port scan")
+        console.print("  [cyan]hash[/cyan]        Hash files / strings / verify / identify")
+        console.print("  [cyan]fim[/cyan]         File Integrity Monitoring (baseline + check)")
         console.print("  [cyan]version[/cyan]     Show version")
         console.print("\n[dim]Use: revosec <command> --help for details[/dim]\n")
 
@@ -138,6 +140,81 @@ def scan(
             )
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def hash(
+    target: Optional[str] = typer.Argument(None, help="File path or string to hash"),
+    algorithm: str = typer.Option("sha256", "--algo", "-a", help="md5, sha1, sha256, sha512, blake2b, blake2s"),
+    verify: Optional[str] = typer.Option(None, "--verify", "-v", help="Expected hash to verify against"),
+    identify: Optional[str] = typer.Option(None, "--identify", "-i", help="Identify possible algorithm of a hash"),
+    multi: bool = typer.Option(False, "--multi", "-m", help="Show multiple common hashes for a file"),
+    text: bool = typer.Option(False, "--text", "-t", help="Treat target as string instead of file"),
+):
+    """Hash files/strings, verify integrity, or identify hash type."""
+    print_module_header("Hash Tools", "Generate • Verify • Identify")
+
+    if identify:
+        candidates = hashing.identify_hash(identify)
+        console.print(f"[cyan]Hash:[/cyan] {identify}")
+        console.print(f"[cyan]Possible algorithms:[/cyan] {', '.join(candidates)}")
+        return
+
+    if not target:
+        console.print("[red]Provide a file path or string (use --text for strings)[/red]")
+        raise typer.Exit(1)
+
+    try:
+        if multi and not text:
+            hashing.print_hash_report(target)
+        elif text:
+            digest = hashing.hash_string(target, algorithm)
+            console.print(f"[green]{algorithm.upper()}:[/green] {digest}")
+        elif verify:
+            hashing.verify_file(target, verify, algorithm)
+        else:
+            digest = hashing.hash_file(target, algorithm)
+            console.print(f"[green]{algorithm.upper()}:[/green] {digest}")
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def fim(
+    action: str = typer.Argument(..., help="create | check | list"),
+    path: Optional[str] = typer.Argument(None, help="Directory path (for create)"),
+    name: str = typer.Option("default", "--name", "-n", help="Baseline name"),
+    recursive: bool = typer.Option(True, "--recursive/--no-recursive", help="Scan subdirectories"),
+    show_ok: bool = typer.Option(False, "--show-ok", help="Also show unchanged files"),
+):
+    """
+    File Integrity Monitoring.
+
+    Examples:
+      revosec fim create /etc --name system
+      revosec fim check --name system
+      revosec fim list
+    """
+    print_module_header("File Integrity Monitor", "Baseline → Detect changes")
+
+    try:
+        if action == "create":
+            if not path:
+                console.print("[red]Directory path required for 'create'[/red]")
+                raise typer.Exit(1)
+            integrity.create_baseline(path, name=name, recursive=recursive)
+        elif action == "check":
+            integrity.check_integrity(name=name, show_ok=show_ok)
+        elif action == "list":
+            integrity.list_baselines()
+        else:
+            console.print("[red]Action must be: create | check | list[/red]")
+            raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        logger.exception("FIM failed")
         raise typer.Exit(1)
 
 
