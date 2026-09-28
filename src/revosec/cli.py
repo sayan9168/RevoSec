@@ -9,7 +9,7 @@ from rich.prompt import Prompt
 
 from revosec.utils.banner import print_banner, print_module_header
 from revosec.utils.logger import logger
-from revosec.core import encryption, password, audit, network, hashing, integrity
+from revosec.core import encryption, password, audit, network, hashing, integrity, vault
 
 app = typer.Typer(
     name="revosec",
@@ -34,7 +34,8 @@ def main(ctx: typer.Context):
         console.print("  [cyan]interfaces[/cyan]  List network interfaces")
         console.print("  [cyan]scan[/cyan]        Authorized TCP port scan")
         console.print("  [cyan]hash[/cyan]        Hash files / strings / verify / identify")
-        console.print("  [cyan]fim[/cyan]         File Integrity Monitoring (baseline + check)")
+        console.print("  [cyan]fim[/cyan]         File Integrity Monitoring (baseline + check + watch)")
+        console.print("  [cyan]vault[/cyan]       Secure encrypted notes vault")
         console.print("  [cyan]version[/cyan]     Show version")
         console.print("\n[dim]Use: revosec <command> --help for details[/dim]\n")
 
@@ -183,8 +184,8 @@ def hash(
 
 @app.command()
 def fim(
-    action: str = typer.Argument(..., help="create | check | list"),
-    path: Optional[str] = typer.Argument(None, help="Directory path (for create)"),
+    action: str = typer.Argument(..., help="create | check | list | watch"),
+    path: Optional[str] = typer.Argument(None, help="Directory path (for create/watch)"),
     name: str = typer.Option("default", "--name", "-n", help="Baseline name"),
     recursive: bool = typer.Option(True, "--recursive/--no-recursive", help="Scan subdirectories"),
     show_ok: bool = typer.Option(False, "--show-ok", help="Also show unchanged files"),
@@ -196,8 +197,9 @@ def fim(
       revosec fim create /etc --name system
       revosec fim check --name system
       revosec fim list
+      revosec fim watch ~/Documents
     """
-    print_module_header("File Integrity Monitor", "Baseline → Detect changes")
+    print_module_header("File Integrity Monitor", "Baseline → Detect changes → Real-time watch")
 
     try:
         if action == "create":
@@ -209,12 +211,61 @@ def fim(
             integrity.check_integrity(name=name, show_ok=show_ok)
         elif action == "list":
             integrity.list_baselines()
+        elif action == "watch":
+            if not path:
+                console.print("[red]Directory path required for 'watch'[/red]")
+                raise typer.Exit(1)
+            integrity.watch_directory(path, recursive=recursive)
         else:
-            console.print("[red]Action must be: create | check | list[/red]")
+            console.print("[red]Action must be: create | check | list | watch[/red]")
             raise typer.Exit(1)
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
         logger.exception("FIM failed")
+        raise typer.Exit(1)
+
+
+@app.command()
+def vault(
+    action: str = typer.Argument(..., help="add | list | read | delete"),
+    title: Optional[str] = typer.Option(None, "--title", "-t", help="Note title (for add)"),
+    note_id: Optional[str] = typer.Option(None, "--id", help="Note ID (for read/delete)"),
+    content: Optional[str] = typer.Option(None, "--content", "-c", help="Note content (for add)"),
+):
+    """
+    Secure Vault - Encrypted notes storage.
+
+    Examples:
+      revosec vault add --title "API Keys" --content "secret=abc123"
+      revosec vault list
+      revosec vault read --id 20260928
+      revosec vault delete --id 20260928
+    """
+    print_module_header("Secure Vault", "AES-GCM encrypted personal notes")
+
+    try:
+        if action == "add":
+            if not title:
+                title = Prompt.ask("Note title")
+            if not content:
+                content = Prompt.ask("Note content")
+            vault.add_note(title, content)
+        elif action == "list":
+            vault.list_notes()
+        elif action == "read":
+            if not note_id:
+                note_id = Prompt.ask("Note ID (or partial)")
+            vault.read_note(note_id)
+        elif action == "delete":
+            if not note_id:
+                note_id = Prompt.ask("Note ID (or partial)")
+            vault.delete_note(note_id)
+        else:
+            console.print("[red]Action must be: add | list | read | delete[/red]")
+            raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        logger.exception("Vault failed")
         raise typer.Exit(1)
 
 
