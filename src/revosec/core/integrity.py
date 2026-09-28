@@ -33,12 +33,6 @@ def create_baseline(
 ) -> Path:
     """
     Create a hash baseline of all files in a directory.
-
-    Args:
-        directory: Root directory to scan
-        name: Name of the baseline
-        recursive: Walk subdirectories
-        extensions: Optional list of extensions to include (e.g. ['.py', '.conf'])
     """
     directory = Path(directory).resolve()
     if not directory.is_dir():
@@ -94,10 +88,7 @@ def create_baseline(
 
 
 def check_integrity(name: str = "default", show_ok: bool = False) -> Dict:
-    """
-    Compare current files against a saved baseline.
-    Reports added, modified, deleted files.
-    """
+    """Compare current files against a saved baseline."""
     baseline_path = BASELINE_DIR / f"{name}.json"
     if not baseline_path.exists():
         raise FileNotFoundError(f"Baseline not found: {baseline_path}\nRun 'revosec fim create' first.")
@@ -123,7 +114,6 @@ def check_integrity(name: str = "default", show_ok: bool = False) -> Dict:
     deleted = []
     ok = []
 
-    # Check existing expected files
     for rel, meta in expected.items():
         if rel not in current or current[rel]["sha256"] is None:
             deleted.append(rel)
@@ -136,7 +126,6 @@ def check_integrity(name: str = "default", show_ok: bool = False) -> Dict:
         else:
             ok.append(rel)
 
-    # Find new files
     if root.exists():
         for path in root.rglob("*"):
             if path.is_file():
@@ -147,7 +136,6 @@ def check_integrity(name: str = "default", show_ok: bool = False) -> Dict:
                 except ValueError:
                     pass
 
-    # Report
     table = Table(title=f"Integrity Check — {name}", box=box.ROUNDED)
     table.add_column("Status", style="bold")
     table.add_column("Count")
@@ -219,3 +207,72 @@ def list_baselines() -> None:
             table.add_row(b.stem, "?", "?", "?")
 
     console.print(table)
+
+
+def watch_directory(
+    directory: str | Path,
+    recursive: bool = True,
+    duration: Optional[int] = None,
+) -> None:
+    """
+    Real-time File Integrity Monitoring using watchdog.
+    Prints events as files are created, modified, or deleted.
+    Press Ctrl+C to stop.
+    """
+    try:
+        from watchdog.observers import Observer
+        from watchdog.events import FileSystemEventHandler
+    except ImportError:
+        console.print("[red]watchdog not installed. Run: pip install watchdog[/red]")
+        return
+
+    directory = Path(directory).resolve()
+    if not directory.is_dir():
+        raise NotADirectoryError(f"Not a directory: {directory}")
+
+    class FIMHandler(FileSystemEventHandler):
+        def on_created(self, event):
+            if not event.is_directory:
+                console.print(f"[green]CREATED[/green]  {event.src_path}")
+                logger.info(f"FIM CREATED: {event.src_path}")
+
+        def on_modified(self, event):
+            if not event.is_directory:
+                console.print(f"[yellow]MODIFIED[/yellow] {event.src_path}")
+                logger.info(f"FIM MODIFIED: {event.src_path}")
+
+        def on_deleted(self, event):
+            if not event.is_directory:
+                console.print(f"[red]DELETED[/red]  {event.src_path}")
+                logger.info(f"FIM DELETED: {event.src_path}")
+
+        def on_moved(self, event):
+            if not event.is_directory:
+                console.print(f"[blue]MOVED[/blue]    {event.src_path} → {event.dest_path}")
+                logger.info(f"FIM MOVED: {event.src_path} → {event.dest_path}")
+
+    console.print(Panel(
+        f"[bold]Watching:[/bold] {directory}\n"
+        f"Recursive: {recursive}\n"
+        f"Press [bold]Ctrl+C[/bold] to stop.",
+        title="Real-time FIM",
+        border_style="cyan",
+    ))
+
+    event_handler = FIMHandler()
+    observer = Observer()
+    observer.schedule(event_handler, str(directory), recursive=recursive)
+    observer.start()
+
+    try:
+        if duration:
+            time.sleep(duration)
+        else:
+            while True:
+                time.sleep(1)
+    except KeyboardInterrupt:
+        console.print("\n[cyan]Stopping watcher...[/cyan]")
+    finally:
+        observer.stop()
+        observer.join()
+        console.print("[green]Watcher stopped.[/green]")
