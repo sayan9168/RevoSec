@@ -11,7 +11,7 @@ against systems you do not own or have explicit permission to test is
 illegal and unethical.
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __author__ = "Sayan the researcher"
 __license__ = "MIT"
 
