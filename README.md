@@ -25,6 +25,8 @@
 | **System Audit** | Local host audit (CPU, memory, disks, listening ports, processes) | Fully Safe |
 | **Network Interfaces** | Passive listing of local interfaces | Fully Safe |
 | **Port Scanner** | TCP connect scanner with mandatory authorization confirmation | Authorization Required |
+| **Hash Tools** | Multi-algo hashing, verification, hash identification | Fully Safe |
+| **File Integrity Monitor** | Create baselines + detect added/modified/deleted files | Fully Safe |
 | **Report Export** | JSON / CSV / Markdown reports saved to `~/.revosec/reports/` | Fully Safe |
 
 ### Why RevoSec is different
@@ -88,6 +90,18 @@ revosec scan 192.168.1.10
 revosec scan 192.168.1.10 --ports 22,80,443,8080
 revosec scan example.com --ports 1-1000 --yes   # skip prompt (still logged)
 
+# Hash tools
+revosec hash secret.pdf
+revosec hash secret.pdf --multi
+revosec hash "hello world" --text --algo sha512
+revosec hash secret.pdf --verify abc123...
+revosec hash --identify 5d41402abc4b2a76b9719d911017c592
+
+# File Integrity Monitoring
+revosec fim create /etc --name system
+revosec fim check --name system
+revosec fim list
+
 # Version
 revosec version
 ```
@@ -103,7 +117,9 @@ src/revosec/
 │   ├── encryption.py   # AES-GCM / ChaCha20-Poly1305
 │   ├── password.py     # Generator + strength analysis
 │   ├── audit.py        # Local system audit
-│   └── network.py      # Interfaces + authorized scanner
+│   ├── network.py      # Interfaces + authorized scanner
+│   ├── hashing.py      # Multi-algo hash + identify + verify
+│   └── integrity.py    # File Integrity Monitoring (FIM)
 └── utils/
     ├── banner.py
     ├── logger.py
@@ -147,10 +163,11 @@ pytest
 
 ## 🗺️ Roadmap
 
-- [ ] File Integrity Monitoring (watchdog + hashing)
+- [x] File Integrity Monitoring (baseline + change detection)
+- [x] Hash tools (multi-algo + identify + verify)
 - [ ] Optional local web dashboard (Streamlit / FastAPI)
-- [ ] Hash identification & educational cracker (for your own hashes)
-- [ ] Secure note vault
+- [ ] Secure note vault (encrypted)
+- [ ] Real-time FIM with watchdog
 - [ ] Plugin system
 
 ---
